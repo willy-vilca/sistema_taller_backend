@@ -5,19 +5,22 @@ import com.tallermecanico.api.common.PageResponse;
 import com.tallermecanico.api.client.ClientRepository;
 import com.tallermecanico.api.user.SystemUser;
 import com.tallermecanico.api.user.SystemUserRepository;
-import com.tallermecanico.api.user.UserService;
 import com.tallermecanico.api.vehicle.Vehicle;
 import com.tallermecanico.api.vehicle.VehicleRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import jakarta.persistence.criteria.Predicate;
 
 @Service
 @Transactional
@@ -51,7 +54,7 @@ public class ServiceRecordService {
         validateDateRange(fromDate, toDate);
         Pageable pageable = PageRequest.of(page, size, Sort.by("serviceDate").descending().and(Sort.by("createdAt").descending()));
         return PageResponse.from(
-                serviceRecordRepository.search(normalizeSearch(search), vehicleId, fromDate, toDate, pageable),
+                serviceRecordRepository.findAll(buildSearchSpecification(search, vehicleId, fromDate, toDate), pageable),
                 ServiceRecordMapper::toResponse
         );
     }
@@ -132,8 +135,40 @@ public class ServiceRecordService {
         }
     }
 
-    private String normalizeSearch(String search) {
-        return search == null || search.isBlank() ? "" : search.trim();
+    private Specification<ServiceRecord> buildSearchSpecification(
+            String search,
+            UUID vehicleId,
+            LocalDate fromDate,
+            LocalDate toDate
+    ) {
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            var vehicle = root.join("vehicle");
+            var client = vehicle.join("client");
+            var responsibleUser = root.join("responsibleUser");
+
+            if (search != null && !search.isBlank()) {
+                String pattern = "%" + search.trim().toLowerCase() + "%";
+                predicates.add(criteriaBuilder.or(
+                        criteriaBuilder.like(criteriaBuilder.lower(client.get("fullName")), pattern),
+                        criteriaBuilder.like(criteriaBuilder.lower(vehicle.get("licensePlate")), pattern),
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("description")), pattern),
+                        criteriaBuilder.like(criteriaBuilder.lower(responsibleUser.get("fullName")), pattern)
+                ));
+            }
+            if (vehicleId != null) {
+                predicates.add(criteriaBuilder.equal(vehicle.get("id"), vehicleId));
+            }
+            if (fromDate != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("serviceDate"), fromDate));
+            }
+            if (toDate != null) {
+                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("serviceDate"), toDate));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
+        };
     }
 
     private String normalizeText(String value) {
