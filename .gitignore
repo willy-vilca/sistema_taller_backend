@@ -31,3 +31,11 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Local and deployment environment files. Example files stay versioned.
+.env
+.env.local
+.env.development
+.env.development.local
+.env.production
+.env.production.local
