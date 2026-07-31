@@ -1,0 +1,66 @@
+package com.tallermecanico.api.auth;
+
+import com.tallermecanico.api.user.SystemUser;
+import com.tallermecanico.api.user.SystemUserRepository;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Optional;
+
+@Component
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+    private final JwtService jwtService;
+    private final SystemUserRepository userRepository;
+
+    public JwtAuthenticationFilter(JwtService jwtService, SystemUserRepository userRepository) {
+        this.jwtService = jwtService;
+        this.userRepository = userRepository;
+    }
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
+        String authorization = request.getHeader("Authorization");
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        String token = authorization.substring(7);
+        Optional<String> username = jwtService.extractUsername(token);
+        if (username.isPresent() && SecurityContextHolder.getContext().getAuthentication() == null) {
+            userRepository.findByUsernameIgnoreCase(username.get())
+                    .filter(SystemUser::isActive)
+                    .filter(user -> jwtService.isTokenValid(token, user))
+                    .ifPresent(user -> authenticate(request, user));
+        }
+
+        filterChain.doFilter(request, response);
+    }
+
+    private void authenticate(HttpServletRequest request, SystemUser systemUser) {
+        User principal = new User(
+                systemUser.getUsername(),
+                "",
+                List.of(new SimpleGrantedAuthority("ROLE_" + systemUser.getRole().getName().name()))
+        );
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                principal,
+                null,
+                principal.getAuthorities()
+        );
+        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+    }
+}
