@@ -17,6 +17,9 @@ public record ServiceRecordRequest(
         String description,
         @NotNull(message = "La fecha del servicio es obligatoria.") LocalDate serviceDate,
         LocalDate nextServiceDate,
+        @Size(max = 2000, message = "La descripción del próximo servicio no puede superar 2000 caracteres.")
+        String nextServiceDescription,
+        UUID scheduledServiceId,
         @DecimalMin(value = "0.00", message = "El costo no puede ser negativo.") BigDecimal totalCost,
         @Size(max = 2000, message = "Las notas no pueden superar 2000 caracteres.") String notes
 ) {

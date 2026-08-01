@@ -3,6 +3,8 @@ package com.tallermecanico.api.service;
 import com.tallermecanico.api.common.BusinessException;
 import com.tallermecanico.api.common.PageResponse;
 import com.tallermecanico.api.client.ClientRepository;
+import com.tallermecanico.api.scheduledservice.ScheduledService;
+import com.tallermecanico.api.scheduledservice.ScheduledServiceService;
 import com.tallermecanico.api.user.SystemUser;
 import com.tallermecanico.api.user.SystemUserRepository;
 import com.tallermecanico.api.vehicle.Vehicle;
@@ -29,17 +31,20 @@ public class ServiceRecordService {
     private final VehicleRepository vehicleRepository;
     private final SystemUserRepository userRepository;
     private final ClientRepository clientRepository;
+    private final ScheduledServiceService scheduledServiceService;
 
     public ServiceRecordService(
             ServiceRecordRepository serviceRecordRepository,
             VehicleRepository vehicleRepository,
             SystemUserRepository userRepository,
-            ClientRepository clientRepository
+            ClientRepository clientRepository,
+            ScheduledServiceService scheduledServiceService
     ) {
         this.serviceRecordRepository = serviceRecordRepository;
         this.vehicleRepository = vehicleRepository;
         this.userRepository = userRepository;
         this.clientRepository = clientRepository;
+        this.scheduledServiceService = scheduledServiceService;
     }
 
     @Transactional(readOnly = true)
@@ -61,10 +66,15 @@ public class ServiceRecordService {
 
     public ServiceRecordResponse create(ServiceRecordRequest request, String registeredByUsername) {
         validateNextServiceDate(request.serviceDate(), request.nextServiceDate());
+        validateNextScheduledServiceData(request.nextServiceDate(), request.nextServiceDescription());
         Vehicle vehicle = getVehicle(request.vehicleId());
         SystemUser responsibleUser = getActiveUser(request.responsibleUserId());
         SystemUser registeredByUser = userRepository.findByUsernameIgnoreCase(registeredByUsername)
                 .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "La sesión ya no es válida."));
+
+        ScheduledService scheduledServiceToComplete = request.scheduledServiceId() == null
+                ? null
+                : scheduledServiceService.reserveForCompletion(request.scheduledServiceId(), vehicle.getId());
 
         ServiceRecord record = new ServiceRecord(
                 vehicle,
@@ -76,7 +86,21 @@ public class ServiceRecordService {
                 request.totalCost(),
                 nullableText(request.notes())
         );
-        return ServiceRecordMapper.toResponse(serviceRecordRepository.save(record));
+        ServiceRecord savedRecord = serviceRecordRepository.save(record);
+
+        if (scheduledServiceToComplete != null) {
+            scheduledServiceService.complete(scheduledServiceToComplete, savedRecord);
+        }
+        if (request.nextServiceDate() != null) {
+            scheduledServiceService.createFromServiceRecord(
+                    savedRecord,
+                    registeredByUser,
+                    request.nextServiceDate(),
+                    request.nextServiceDescription()
+            );
+        }
+
+        return ServiceRecordMapper.toResponse(savedRecord);
     }
 
     public ServiceRecordResponse update(UUID id, ServiceRecordRequest request) {
@@ -90,6 +114,11 @@ public class ServiceRecordService {
         record.setTotalCost(request.totalCost());
         record.setNotes(nullableText(request.notes()));
         return ServiceRecordMapper.toResponse(record);
+    }
+
+    @Transactional(readOnly = true)
+    public ServiceRecordResponse get(UUID id) {
+        return ServiceRecordMapper.toResponse(getEntity(id));
     }
 
     @Transactional(readOnly = true)
@@ -132,6 +161,15 @@ public class ServiceRecordService {
     private void validateNextServiceDate(LocalDate serviceDate, LocalDate nextServiceDate) {
         if (nextServiceDate != null && nextServiceDate.isBefore(serviceDate)) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "La fecha del próximo servicio no puede ser anterior al servicio realizado.");
+        }
+    }
+
+    private void validateNextScheduledServiceData(LocalDate nextServiceDate, String nextServiceDescription) {
+        if (nextServiceDate == null && nextServiceDescription != null && !nextServiceDescription.isBlank()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Indica una fecha para programar el próximo servicio.");
+        }
+        if (nextServiceDate != null && (nextServiceDescription == null || nextServiceDescription.isBlank())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Describe el trabajo previsto para el próximo servicio.");
         }
     }
 
