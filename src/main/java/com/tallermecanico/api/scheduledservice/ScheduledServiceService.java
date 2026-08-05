@@ -73,6 +73,38 @@ public class ScheduledServiceService {
         return ScheduledServiceMapper.toResponse(scheduledServiceRepository.save(scheduledService));
     }
 
+    public ScheduledServiceResponse update(UUID id, ScheduledServiceRequest request) {
+        ScheduledService scheduledService = getDetailedEntity(id);
+        ensurePending(scheduledService);
+
+        Vehicle vehicle = getVehicle(request.vehicleId());
+        ServiceRecord sourceServiceRecord = scheduledService.getSourceServiceRecord();
+        if (sourceServiceRecord != null) {
+            if (sourceServiceRecord.getVehicle().getId().equals(vehicle.getId())) {
+                sourceServiceRecord.setNextServiceDate(request.scheduledDate());
+            } else {
+                // La programación deja de corresponder al servicio de origen al cambiar de vehículo.
+                sourceServiceRecord.setNextServiceDate(null);
+                scheduledService.setSourceServiceRecord(null);
+            }
+        }
+
+        scheduledService.setVehicle(vehicle);
+        scheduledService.setScheduledDate(request.scheduledDate());
+        scheduledService.setDescription(nullableText(request.description()));
+        return ScheduledServiceMapper.toResponse(scheduledService);
+    }
+
+    public void deletePending(UUID id) {
+        ScheduledService scheduledService = getDetailedEntity(id);
+        ensurePending(scheduledService);
+
+        if (scheduledService.getSourceServiceRecord() != null) {
+            scheduledService.getSourceServiceRecord().setNextServiceDate(null);
+        }
+        scheduledServiceRepository.delete(scheduledService);
+    }
+
     public void createFromServiceRecord(
             ServiceRecord sourceServiceRecord,
             SystemUser createdByUser,
@@ -114,6 +146,15 @@ public class ScheduledServiceService {
     private Vehicle getVehicle(UUID id) {
         return vehicleRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "No se encontró el vehículo seleccionado."));
+    }
+
+    private void ensurePending(ScheduledService scheduledService) {
+        if (scheduledService.isCompleted()) {
+            throw new BusinessException(
+                    HttpStatus.CONFLICT,
+                    "Los servicios programados completados no se pueden editar ni eliminar."
+            );
+        }
     }
 
     private SystemUser getActiveUserByUsername(String username) {

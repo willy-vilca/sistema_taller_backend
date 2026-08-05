@@ -2,6 +2,7 @@ package com.tallermecanico.api;
 
 import com.tallermecanico.api.client.Client;
 import com.tallermecanico.api.client.ClientRepository;
+import com.tallermecanico.api.common.BusinessException;
 import com.tallermecanico.api.analytics.AnalyticsService;
 import com.tallermecanico.api.analytics.AnalyticsServiceFilters;
 import com.tallermecanico.api.analytics.AnalyticsServiceOrigin;
@@ -28,6 +29,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -91,6 +93,9 @@ class TallerApiApplicationTests {
 
 		assertThat(completedSchedule.status()).isEqualTo(ScheduledServiceStatus.COMPLETED);
 		assertThat(completedSchedule.completedServiceRecordId()).isEqualTo(completedService.id());
+		assertThatThrownBy(() -> scheduledServiceService.deletePending(scheduledService.id()))
+				.isInstanceOf(BusinessException.class)
+				.hasMessageContaining("no se pueden editar ni eliminar");
 		assertThat(pendingSchedules.content()).singleElement().satisfies(nextSchedule -> {
 			assertThat(nextSchedule.sourceServiceRecordId()).isEqualTo(completedService.id());
 			assertThat(nextSchedule.description()).isEqualTo("Mantenimiento preventivo");
@@ -112,6 +117,35 @@ class TallerApiApplicationTests {
 			assertThat(result.origin()).isEqualTo(AnalyticsServiceOrigin.SCHEDULED);
 			assertThat(result.service().id()).isEqualTo(completedService.id());
 		});
+	}
+
+	@Test
+	void updatesAndDeletesPendingScheduledService() {
+		Role role = roleRepository.findByName(RoleName.EMPLEADO).orElseThrow();
+		SystemUser employee = userRepository.save(new SystemUser("mecanico-edicion", "Mecánico de edición", "hash", role));
+		Client client = clientRepository.save(new Client("Cliente de edición", "87654321", null, null));
+		Vehicle originalVehicle = vehicleRepository.save(new Vehicle(client, "EDT-001", "Kia Rio"));
+		Vehicle replacementVehicle = vehicleRepository.save(new Vehicle(client, "EDT-002", "Toyota Yaris"));
+
+		ScheduledServiceResponse created = scheduledServiceService.create(
+				new ScheduledServiceRequest(originalVehicle.getId(), LocalDate.now().plusDays(8), "Cambio de aceite"),
+				"mecanico-edicion"
+		);
+
+		ScheduledServiceResponse updated = scheduledServiceService.update(
+				created.id(),
+				new ScheduledServiceRequest(replacementVehicle.getId(), LocalDate.now().plusDays(12), "Revisión integral")
+		);
+
+		assertThat(updated.status()).isEqualTo(ScheduledServiceStatus.PENDING);
+		assertThat(updated.vehicleId()).isEqualTo(replacementVehicle.getId());
+		assertThat(updated.scheduledDate()).isEqualTo(LocalDate.now().plusDays(12));
+		assertThat(updated.description()).isEqualTo("Revisión integral");
+
+		scheduledServiceService.deletePending(updated.id());
+
+		assertThat(scheduledServiceService.search(null, replacementVehicle.getId(), null, null, null, 0, 20).content())
+				.noneMatch(scheduledService -> scheduledService.id().equals(updated.id()));
 	}
 
 }

@@ -59,6 +59,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/api/v1/analytics/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/scheduled-services/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/scheduled-services/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/users/active-employees").authenticated()
                         .requestMatchers("/api/v1/users/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
