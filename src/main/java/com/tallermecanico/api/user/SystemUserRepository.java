@@ -14,4 +14,6 @@ public interface SystemUserRepository extends JpaRepository<SystemUser, UUID> {
     boolean existsByUsernameIgnoreCase(String username);
 
     List<SystemUser> findAllByActiveTrueOrderByFullNameAsc();
+
+    List<SystemUser> findAllByOrderByFullNameAsc();
 }

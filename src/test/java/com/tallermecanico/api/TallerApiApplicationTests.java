@@ -2,6 +2,9 @@ package com.tallermecanico.api;
 
 import com.tallermecanico.api.client.Client;
 import com.tallermecanico.api.client.ClientRepository;
+import com.tallermecanico.api.analytics.AnalyticsService;
+import com.tallermecanico.api.analytics.AnalyticsServiceFilters;
+import com.tallermecanico.api.analytics.AnalyticsServiceOrigin;
 import com.tallermecanico.api.scheduledservice.ScheduledServiceRequest;
 import com.tallermecanico.api.scheduledservice.ScheduledServiceResponse;
 import com.tallermecanico.api.scheduledservice.ScheduledServiceService;
@@ -48,6 +51,9 @@ class TallerApiApplicationTests {
 	@Autowired
 	private VehicleRepository vehicleRepository;
 
+	@Autowired
+	private AnalyticsService analyticsService;
+
 	@Test
 	void contextLoads() {
 	}
@@ -89,6 +95,22 @@ class TallerApiApplicationTests {
 			assertThat(nextSchedule.sourceServiceRecordId()).isEqualTo(completedService.id());
 			assertThat(nextSchedule.description()).isEqualTo("Mantenimiento preventivo");
 			assertThat(nextSchedule.scheduledDate()).isEqualTo(serviceDate.plusDays(90));
+		});
+
+		var dashboard = analyticsService.getDashboard(serviceDate, serviceDate);
+		var analyticsResults = analyticsService.searchServices(
+				new AnalyticsServiceFilters(null, client.getId(), vehicle.getId(), employee.getId(), serviceDate, serviceDate, null, null, AnalyticsServiceOrigin.SCHEDULED, null, null),
+				0,
+				20
+		);
+
+		assertThat(dashboard.serviceCount()).isEqualTo(1);
+		assertThat(dashboard.revenue()).isEqualByComparingTo("85.00");
+		assertThat(dashboard.scheduledCompletionCount()).isEqualTo(1);
+		assertThat(dashboard.topClients()).singleElement().extracting("label").isEqualTo("Cliente de prueba");
+		assertThat(analyticsResults.content()).singleElement().satisfies(result -> {
+			assertThat(result.origin()).isEqualTo(AnalyticsServiceOrigin.SCHEDULED);
+			assertThat(result.service().id()).isEqualTo(completedService.id());
 		});
 	}
 

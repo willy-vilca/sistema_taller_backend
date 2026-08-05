@@ -7,12 +7,15 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 public interface ClientRepository extends JpaRepository<Client, UUID> {
     boolean existsByDni(String dni);
 
     Optional<Client> findByDni(String dni);
+
+    List<Client> findAllByOrderByFullNameAsc();
 
     @Query(
             value = """
