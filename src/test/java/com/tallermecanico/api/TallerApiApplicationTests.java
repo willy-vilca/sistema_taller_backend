@@ -2,6 +2,7 @@ package com.tallermecanico.api;
 
 import com.tallermecanico.api.client.Client;
 import com.tallermecanico.api.client.ClientRepository;
+import com.tallermecanico.api.client.ClientService;
 import com.tallermecanico.api.common.BusinessException;
 import com.tallermecanico.api.analytics.AnalyticsService;
 import com.tallermecanico.api.analytics.AnalyticsServiceFilters;
@@ -55,6 +56,9 @@ class TallerApiApplicationTests {
 
 	@Autowired
 	private AnalyticsService analyticsService;
+
+	@Autowired
+	private ClientService clientService;
 
 	@Test
 	void contextLoads() {
@@ -146,6 +150,41 @@ class TallerApiApplicationTests {
 
 		assertThat(scheduledServiceService.search(null, replacementVehicle.getId(), null, null, null, 0, 20).content())
 				.noneMatch(scheduledService -> scheduledService.id().equals(updated.id()));
+	}
+
+	@Test
+	void searchesIgnoreLetterCaseAndPlateSeparators() {
+		Role role = roleRepository.findByName(RoleName.EMPLEADO).orElseThrow();
+		SystemUser employee = userRepository.save(new SystemUser("busqueda", "Mecánico Buscador", "hash", role));
+		Client client = clientRepository.save(new Client("Willy Vilca", "44556677", null, null));
+		Vehicle vehicle = vehicleRepository.save(new Vehicle(client, "SRH-789", "Toyota Corolla"));
+		LocalDate serviceDate = LocalDate.now();
+
+		serviceRecordService.create(
+				new ServiceRecordRequest(
+						vehicle.getId(), employee.getId(), "Cambio de aceite", serviceDate,
+						null, null, null, new BigDecimal("90.00"), null
+				),
+				"busqueda"
+		);
+		scheduledServiceService.create(
+				new ScheduledServiceRequest(vehicle.getId(), serviceDate.plusDays(1), "Revisión general"),
+				"busqueda"
+		);
+
+		assertThat(clientService.search("sRh789", 0, 20).content())
+				.anyMatch(result -> result.id().equals(client.getId()));
+		assertThat(serviceRecordService.search("SRH789", null, null, null, 0, 20).content())
+				.anyMatch(result -> result.vehicleId().equals(vehicle.getId()));
+		assertThat(scheduledServiceService.search("srh789", null, null, null, ScheduledServiceStatus.PENDING, 0, 20).content())
+				.anyMatch(result -> result.vehicleId().equals(vehicle.getId()));
+		assertThat(analyticsService.searchServices(
+				new AnalyticsServiceFilters("srh-789", null, null, null, null, null, null, null, null, null, null),
+				0,
+				20
+		).content()).anyMatch(result -> result.service().vehicleId().equals(vehicle.getId()));
+		assertThat(serviceRecordService.search("wIlLy", null, null, null, 0, 20).content())
+				.anyMatch(result -> result.clientId().equals(client.getId()));
 	}
 
 }

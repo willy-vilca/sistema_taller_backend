@@ -21,17 +21,21 @@ public interface ClientRepository extends JpaRepository<Client, UUID> {
             value = """
                     select distinct client from Client client
                     left join client.vehicles vehicle
-                    where lower(client.fullName) like lower(concat('%', :search, '%'))
-                       or client.dni like concat('%', :search, '%')
-                       or upper(vehicle.licensePlate) like upper(concat('%', :search, '%'))
+                    where lower(client.fullName) like concat('%', :searchPattern, '%')
+                       or lower(client.dni) like concat('%', :searchPattern, '%')
+                       or replace(replace(lower(vehicle.licensePlate), '-', ''), ' ', '') like concat('%', :plateSearchPattern, '%')
                     """,
             countQuery = """
                     select count(distinct client) from Client client
                     left join client.vehicles vehicle
-                    where lower(client.fullName) like lower(concat('%', :search, '%'))
-                       or client.dni like concat('%', :search, '%')
-                       or upper(vehicle.licensePlate) like upper(concat('%', :search, '%'))
+                    where lower(client.fullName) like concat('%', :searchPattern, '%')
+                       or lower(client.dni) like concat('%', :searchPattern, '%')
+                       or replace(replace(lower(vehicle.licensePlate), '-', ''), ' ', '') like concat('%', :plateSearchPattern, '%')
                     """
     )
-    Page<Client> search(@Param("search") String search, Pageable pageable);
+    Page<Client> search(
+            @Param("searchPattern") String searchPattern,
+            @Param("plateSearchPattern") String plateSearchPattern,
+            Pageable pageable
+    );
 }

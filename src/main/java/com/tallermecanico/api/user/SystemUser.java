@@ -36,6 +36,12 @@ public class SystemUser {
     @Column(nullable = false, length = 120)
     private String fullName;
 
+    @Column(length = 254)
+    private String email;
+
+    @Column(nullable = false)
+    private boolean scheduleNotificationsEnabled = true;
+
     @Column(nullable = false, length = 100)
     private String passwordHash;
 
@@ -67,6 +73,19 @@ public class SystemUser {
         this.fullName = fullName;
         this.passwordHash = passwordHash;
         this.role = role;
+    }
+
+    public SystemUser(
+            String username,
+            String fullName,
+            String email,
+            boolean scheduleNotificationsEnabled,
+            String passwordHash,
+            Role role
+    ) {
+        this(username, fullName, passwordHash, role);
+        this.email = email;
+        this.scheduleNotificationsEnabled = scheduleNotificationsEnabled;
     }
 
     public void invalidateSessions() {

@@ -9,7 +9,9 @@ public final class UserMapper {
                 user.getId(),
                 user.getUsername(),
                 user.getFullName(),
+                user.getEmail(),
                 user.getRole().getName(),
+                user.isScheduleNotificationsEnabled(),
                 user.isActive(),
                 user.getLastLoginAt(),
                 user.getCreatedAt()

@@ -1,0 +1,10 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "BACKEND_URL": "http://localhost:8080",
+    "INTERNAL_NOTIFICATION_SECRET": "reemplaza-por-el-mismo-secreto-configurado-en-la-api",
+    "DAILY_REMINDER_SCHEDULE": "0 0 19 * * *"
+  }
+}

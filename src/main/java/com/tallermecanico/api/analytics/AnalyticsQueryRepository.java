@@ -1,6 +1,7 @@
 package com.tallermecanico.api.analytics;
 
 import com.tallermecanico.api.service.ServiceRecord;
+import com.tallermecanico.api.common.SearchNormalizer;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import jakarta.persistence.TypedQuery;
@@ -150,7 +151,7 @@ public class AnalyticsQueryRepository {
         StringBuilder where = new StringBuilder("where 1 = 1");
         if (filters.search() != null && !filters.search().isBlank()) {
             where.append(" and (lower(client.fullName) like :searchPattern")
-                    .append(" or lower(vehicle.licensePlate) like :searchPattern")
+                    .append(" or replace(replace(lower(vehicle.licensePlate), '-', ''), ' ', '') like :plateSearchPattern")
                     .append(" or lower(vehicle.model) like :searchPattern")
                     .append(" or lower(serviceRecord.description) like :searchPattern")
                     .append(" or lower(responsibleUser.fullName) like :searchPattern)");
@@ -188,7 +189,10 @@ public class AnalyticsQueryRepository {
     }
 
     private void applyFilters(Query query, AnalyticsServiceFilters filters) {
-        if (filters.search() != null && !filters.search().isBlank()) query.setParameter("searchPattern", "%" + filters.search().trim().toLowerCase() + "%");
+        if (filters.search() != null && !filters.search().isBlank()) {
+            query.setParameter("searchPattern", "%" + SearchNormalizer.text(filters.search()) + "%");
+            query.setParameter("plateSearchPattern", "%" + SearchNormalizer.plate(filters.search()) + "%");
+        }
         if (filters.clientId() != null) query.setParameter("clientId", filters.clientId());
         if (filters.vehicleId() != null) query.setParameter("vehicleId", filters.vehicleId());
         if (filters.responsibleUserId() != null) query.setParameter("responsibleUserId", filters.responsibleUserId());

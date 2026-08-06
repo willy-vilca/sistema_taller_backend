@@ -7,7 +7,9 @@ public record UserResponse(
         UUID id,
         String username,
         String fullName,
+        String email,
         RoleName role,
+        boolean scheduleNotificationsEnabled,
         boolean active,
         Instant lastLoginAt,
         Instant createdAt

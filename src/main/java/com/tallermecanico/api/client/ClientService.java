@@ -2,6 +2,7 @@ package com.tallermecanico.api.client;
 
 import com.tallermecanico.api.common.BusinessException;
 import com.tallermecanico.api.common.PageResponse;
+import com.tallermecanico.api.common.SearchNormalizer;
 import com.tallermecanico.api.vehicle.VehicleMapper;
 import jakarta.persistence.EntityManager;
 import org.springframework.data.domain.PageRequest;
@@ -28,7 +29,10 @@ public class ClientService {
     @Transactional(readOnly = true)
     public PageResponse<ClientSummaryResponse> search(String search, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("fullName").ascending());
-        return PageResponse.from(clientRepository.search(normalizeSearch(search), pageable), this::toSummary);
+        return PageResponse.from(
+                clientRepository.search(SearchNormalizer.text(search), SearchNormalizer.plate(search), pageable),
+                this::toSummary
+        );
     }
 
     @Transactional(readOnly = true)
@@ -88,13 +92,6 @@ public class ClientService {
                 client.getId(), client.getFullName(), client.getDni(), client.getPhone(), client.getEmail(),
                 client.getVehicles().size(), serviceCount
         );
-    }
-
-    private String normalizeSearch(String search) {
-        if (search == null || search.isBlank()) {
-            return "";
-        }
-        return search.trim();
     }
 
     private String normalizeName(String name) {

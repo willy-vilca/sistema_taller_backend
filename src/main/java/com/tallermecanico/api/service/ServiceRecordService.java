@@ -2,6 +2,7 @@ package com.tallermecanico.api.service;
 
 import com.tallermecanico.api.common.BusinessException;
 import com.tallermecanico.api.common.PageResponse;
+import com.tallermecanico.api.common.SearchNormalizer;
 import com.tallermecanico.api.client.ClientRepository;
 import com.tallermecanico.api.scheduledservice.ScheduledService;
 import com.tallermecanico.api.scheduledservice.ScheduledServiceService;
@@ -187,10 +188,18 @@ public class ServiceRecordService {
             var responsibleUser = root.join("responsibleUser");
 
             if (search != null && !search.isBlank()) {
-                String pattern = "%" + search.trim().toLowerCase() + "%";
+                String pattern = "%" + SearchNormalizer.text(search) + "%";
+                String platePattern = "%" + SearchNormalizer.plate(search) + "%";
+                var normalizedPlate = criteriaBuilder.function(
+                        "replace",
+                        String.class,
+                        criteriaBuilder.function("replace", String.class, criteriaBuilder.lower(vehicle.get("licensePlate")), criteriaBuilder.literal("-"), criteriaBuilder.literal("")),
+                        criteriaBuilder.literal(" "),
+                        criteriaBuilder.literal("")
+                );
                 predicates.add(criteriaBuilder.or(
                         criteriaBuilder.like(criteriaBuilder.lower(client.get("fullName")), pattern),
-                        criteriaBuilder.like(criteriaBuilder.lower(vehicle.get("licensePlate")), pattern),
+                        criteriaBuilder.like(normalizedPlate, platePattern),
                         criteriaBuilder.like(criteriaBuilder.lower(root.get("description")), pattern),
                         criteriaBuilder.like(criteriaBuilder.lower(responsibleUser.get("fullName")), pattern)
                 ));

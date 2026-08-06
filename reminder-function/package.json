@@ -1,0 +1,17 @@
+{
+  "name": "taller-scheduled-service-reminder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dispara diariamente los recordatorios de servicios programados del taller.",
+  "main": "src/functions/*.js",
+  "scripts": {
+    "start": "func start",
+    "test": "node --check src/functions/daily-scheduled-service-reminder.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.7.2"
+  }
+}

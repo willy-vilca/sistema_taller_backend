@@ -48,6 +48,8 @@ public class UserService {
         SystemUser user = new SystemUser(
                 username,
                 normalizeName(request.fullName()),
+                normalizeEmail(request.email()),
+                normalizeScheduleNotifications(request.role(), request.email(), request.scheduleNotificationsEnabled()),
                 passwordEncoder.encode(request.password()),
                 getRole(request.role())
         );
@@ -67,7 +69,13 @@ public class UserService {
         boolean usernameChanged = !user.getUsername().equalsIgnoreCase(username);
         user.setUsername(username);
         user.setFullName(normalizeName(request.fullName()));
+        user.setEmail(normalizeEmail(request.email()));
         user.setRole(getRole(request.role()));
+        user.setScheduleNotificationsEnabled(normalizeScheduleNotifications(
+                request.role(),
+                request.email(),
+                request.scheduleNotificationsEnabled()
+        ));
         if (usernameChanged) {
             user.invalidateSessions();
         }
@@ -119,5 +127,22 @@ public class UserService {
 
     private String normalizeName(String name) {
         return name.trim().replaceAll("\\s+", " ");
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null || email.isBlank() ? null : email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private boolean normalizeScheduleNotifications(RoleName role, String email, boolean requestedValue) {
+        if (role != RoleName.ADMIN) {
+            return false;
+        }
+        if (requestedValue && (email == null || email.isBlank())) {
+            throw new BusinessException(
+                    HttpStatus.BAD_REQUEST,
+                    "Ingresa un correo electrónico para activar los recordatorios de servicios programados."
+            );
+        }
+        return requestedValue;
     }
 }

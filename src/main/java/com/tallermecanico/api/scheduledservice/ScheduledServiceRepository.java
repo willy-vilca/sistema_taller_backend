@@ -36,6 +36,17 @@ public interface ScheduledServiceRepository extends JpaRepository<ScheduledServi
     @EntityGraph(attributePaths = {"vehicle", "vehicle.client", "sourceServiceRecord", "completedServiceRecord"})
     List<ScheduledService> findTop5ByCompletedServiceRecordIsNullOrderByScheduledDateAsc();
 
+    @EntityGraph(attributePaths = {"vehicle", "vehicle.client"})
+    @Query("""
+            select scheduledService from ScheduledService scheduledService
+            join fetch scheduledService.vehicle vehicle
+            join fetch vehicle.client client
+            where scheduledService.completedServiceRecord is null
+              and scheduledService.scheduledDate = :scheduledDate
+            order by client.fullName asc, vehicle.licensePlate asc, scheduledService.createdAt asc
+            """)
+    List<ScheduledService> findPendingDetailedByScheduledDate(@Param("scheduledDate") LocalDate scheduledDate);
+
     @Query("select scheduledService.completedServiceRecord.id, scheduledService.id from ScheduledService scheduledService where scheduledService.completedServiceRecord.id in :serviceRecordIds")
     List<Object[]> findCompletedServiceLinks(@Param("serviceRecordIds") List<UUID> serviceRecordIds);
 }

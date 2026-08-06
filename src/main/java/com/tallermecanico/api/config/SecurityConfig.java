@@ -57,6 +57,7 @@ public class SecurityConfig {
                 .accessDeniedHandler(accessDeniedHandler))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/internal/notifications/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/api/v1/analytics/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/scheduled-services/**").hasRole("ADMIN")
