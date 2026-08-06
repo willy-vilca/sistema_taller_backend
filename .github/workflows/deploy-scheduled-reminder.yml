@@ -35,3 +35,7 @@ jobs:
           app-name: ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
           package: reminder-function
           publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
+          # Flex Consumption does not expose the regular Kudu settings endpoint.
+          # These options make the action use the deployment flow required by Flex.
+          sku: flexconsumption
+          remote-build: true
